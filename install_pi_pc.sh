@@ -6,6 +6,8 @@ BACKUP="/boot/firmware/config.txt.bak"
 BOOT_SOUND="/home/pi/boot.wav"
 SHUT_SOUND="/home/pi/shutdown.wav"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Colors
 RED='\033[1;31m'
 GREEN='\033[1;32m'
@@ -23,7 +25,7 @@ echo "  ██║      ██║██╔══██╗██║     ██║ 
 echo "  ╚██████╗ ██║██║  ██║╚██████╗╚██████╔╝██║   ██║   "
 echo "   ╚═════╝ ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝   "
 echo ""
-echo "        Circuit Pi PC Installer"
+echo "        ⚡ Circuit Pi PC Installer ⚡"
 echo -e "${NC}"
 
 sleep 1
@@ -40,7 +42,7 @@ echo -e "${GREEN}✔ Running as root${NC}"
 cp "$CONFIG" "$BACKUP"
 echo -e "${GREEN}✔ Config backup created${NC}"
 
-# Add config lines safely
+# Add config safely
 add_line() {
   LINE="$1"
   if ! grep -Fxq "$LINE" "$CONFIG"; then
@@ -58,10 +60,10 @@ add_line "dtoverlay=pwm-2chan,pin=18,func=2"
 add_line "dtoverlay=gpio-shutdown,gpio_pin=3,active_low=1,gpio_pull=up"
 
 # =========================
-# 🎨 MOTD
+# 🎨 MOTD (login banner)
 # =========================
 
-echo -e "${BLUE}Installing terminal UI...${NC}"
+echo -e "${BLUE}Installing terminal banner...${NC}"
 
 cat << "EOF" > /etc/motd
    ██████╗ ██╗██████╗  ██████╗██╗   ██╗██╗████████╗
@@ -80,10 +82,30 @@ EOF
 chmod -x /etc/update-motd.d/* 2>/dev/null
 
 # =========================
-# 🔊 BOOT SOUND
+# 🔊 COPY SOUND FILES
 # =========================
 
-echo -e "${BLUE}Setting up boot sound...${NC}"
+echo -e "${BLUE}Installing sound files...${NC}"
+
+if [ -f "$SCRIPT_DIR/boot.wav" ]; then
+  cp "$SCRIPT_DIR/boot.wav" "$BOOT_SOUND"
+  chown pi:pi "$BOOT_SOUND"
+  echo -e "${GREEN}✔ boot.wav installed${NC}"
+else
+  echo -e "${RED}⚠ boot.wav missing in repo${NC}"
+fi
+
+if [ -f "$SCRIPT_DIR/shutdown.wav" ]; then
+  cp "$SCRIPT_DIR/shutdown.wav" "$SHUT_SOUND"
+  chown pi:pi "$SHUT_SOUND"
+  echo -e "${GREEN}✔ shutdown.wav installed${NC}"
+else
+  echo -e "${RED}⚠ shutdown.wav missing in repo${NC}"
+fi
+
+# =========================
+# 🔊 BOOT SOUND SERVICE
+# =========================
 
 cat << EOF > /etc/systemd/system/boot-sound.service
 [Unit]
@@ -100,10 +122,8 @@ WantedBy=multi-user.target
 EOF
 
 # =========================
-# 🔊 SHUTDOWN SOUND
+# 🔊 SHUTDOWN SOUND SERVICE
 # =========================
-
-echo -e "${BLUE}Setting up shutdown sound...${NC}"
 
 cat << EOF > /etc/systemd/system/shutdown-sound.service
 [Unit]
@@ -121,82 +141,22 @@ User=pi
 WantedBy=halt.target reboot.target shutdown.target
 EOF
 
-# Enable services
 systemctl daemon-reload
 systemctl enable boot-sound.service
 systemctl enable shutdown-sound.service
 
-echo ""
-echo -e "${GREEN}✔ FULL INSTALL COMPLETE${NC}"
-
-echo -e "${CYAN}"
-echo "🔊 Audio system ready"
-echo "🔘 Power button enabled"
-echo "🎨 Terminal UI installed"
-echo "🎵 Boot + shutdown sounds ready"
-echo -e "${NC}"
-
-echo -e "${BLUE}Place your sound files here:${NC}"
-echo "/home/pi/boot.wav"
-echo "/home/pi/shutdown.wav"
-
-echo -e "${GREEN}Then reboot:${NC} sudo reboot"
-# Backup config
-echo -e "${BLUE}Backing up config.txt...${NC}"
-cp "$CONFIG" "$BACKUP"
-echo -e "${GREEN}✔ Backup created${NC}"
-
-# Function to safely add lines
-add_line() {
-  LINE="$1"
-  if grep -Fxq "$LINE" "$CONFIG"; then
-    echo -e "${GREEN}✔ Exists:${NC} $LINE"
-  else
-    echo -e "${CYAN}➕ Adding:${NC} $LINE"
-    echo "$LINE" >> "$CONFIG"
-  fi
-}
-
-echo -e "${BLUE}Applying system configuration...${NC}"
-
-add_line "dtparam=audio=off"
-add_line "dtoverlay=pwm-2chan,pin=18,func=2"
-add_line "dtoverlay=gpio-shutdown,gpio_pin=3,active_low=1,gpio_pull=up"
-
 # =========================
-# 🎨 SET CUSTOM MOTD
+# DONE
 # =========================
 
-echo -e "${BLUE}Installing Circuit terminal banner...${NC}"
-
-cat << "EOF" > /etc/motd
-   ██████╗ ██╗██████╗  ██████╗██╗   ██╗██╗████████╗
-  ██╔════╝ ██║██╔══██╗██╔════╝██║   ██║██║╚══██╔══╝
-  ██║      ██║██████╔╝██║     ██║   ██║██║   ██║   
-  ██║      ██║██╔══██╗██║     ██║   ██║██║   ██║   
-  ╚██████╗ ██║██║  ██║╚██████╗╚██████╔╝██║   ██║   
-   ╚═════╝ ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝   
-
-        ⚡ Circuit Pi PC ⚡
-     GPIO Audio • AI • Robotics
-
-System: Raspberry Pi 3B+
-Kernel: Bookworm
-Status: ONLINE
-EOF
-
-# Disable default Debian MOTD scripts
-chmod -x /etc/update-motd.d/* 2>/dev/null
-
-echo -e "${GREEN}✔ Terminal banner installed${NC}"
-
 echo ""
-echo -e "${GREEN}✔ Setup complete!${NC}"
+echo -e "${GREEN}✔ INSTALL COMPLETE${NC}"
 
 echo -e "${CYAN}"
-echo "   🔊 PWM Audio Enabled (GPIO18)"
-echo "   🔘 Power Button Enabled (GPIO3)"
-echo "   🖥️ Custom Terminal UI Enabled"
+echo "🔊 PWM Audio: ENABLED"
+echo "🔘 Power Button: ENABLED"
+echo "🎵 Boot + Shutdown Sounds: INSTALLED"
+echo "🎨 Terminal UI: ACTIVE"
 echo -e "${NC}"
 
-echo -e "${BLUE}Reboot required →${NC} sudo reboot"
+echo -e "${BLUE}Reboot with:${NC} sudo reboot"
